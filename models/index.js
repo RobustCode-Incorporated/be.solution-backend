@@ -13,15 +13,31 @@ const config = require(path.join(__dirname, '/../config/config.js'))[env];
 const db = {};
 
 let sequelize;
-if (config.use_env_variable) {
-  // Utilisation de la variable d'environnement si configurée
-  sequelize = new Sequelize(process.env[config.use_env_variable], config);
+
+if (process.env.MY_DATABASE_URL) {
+  // Prioriser la variable d'environnement personnalisée MY_DATABASE_URL avec SSL activé
+  sequelize = new Sequelize(process.env.MY_DATABASE_URL, {
+    dialect: config.dialect,
+    logging: config.logging || false,
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false
+      }
+    }
+  });
+} else if (config.use_env_variable) {
+  // Utilisation de la variable d'environnement si configurée dans config
+  sequelize = new Sequelize(process.env[config.use_env_variable], {
+    dialect: config.dialect,
+    logging: config.logging || false,
+  });
 } else {
   // Sinon on utilise la config du fichier JSON
   sequelize = new Sequelize(config.database, config.username, config.password, {
     host: config.host,
     dialect: config.dialect, // IMPORTANT: on s'assure de prendre le dialect depuis config.json
-    logging: false,          // optionnel : désactive logs SQL (à adapter)
+    logging: config.logging || false, // optionnel : désactive logs SQL (à adapter)
   });
 }
 

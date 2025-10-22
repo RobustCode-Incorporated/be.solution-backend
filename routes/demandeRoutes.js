@@ -19,6 +19,9 @@ router.get('/validation', auth(['agent', 'admin', 'admin_general']), demandeCont
 // Nouvelle route pour le téléchargement du document
 router.get('/:id/download', auth(['citoyen', 'agent', 'admin', 'admin_general']), demandeController.downloadDocument);
 
+// Nouvelle route pour générer le fichier Wallet Apple/Google
+router.get('/:id/wallet', auth(['citoyen', 'agent', 'admin', 'admin_general']), demandeController.generateWalletPass);
+
 // Les routes avec des paramètres généraux comme ':id' DOIVENT être définies après
 router.get('/', auth(['agent', 'admin', 'admin_general']), demandeController.getAllDemandes);
 router.get('/:id', auth(['agent', 'admin', 'admin_general']), demandeController.getDemandeById);

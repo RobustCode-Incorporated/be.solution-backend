@@ -2,10 +2,11 @@
 const { Administrateur, Agent, Citoyen } = require('../models');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const { sendNUCEmail } = require('../utils/mailer'); // Pour envoi NUC par e-mail
 
 const JWT_SECRET = process.env.JWT_SECRET || 'ma_cle_super_secrete';
 
-// Connexion pour tous les types d’utilisateurs
+// --- Connexion pour tous les types d’utilisateurs ---
 exports.loginUser = async (req, res) => {
   const { username, password, role } = req.body;
 
@@ -16,21 +17,30 @@ exports.loginUser = async (req, res) => {
       case 'admin':
         user = await Administrateur.findOne({ where: { username } });
         userRole = 'admin';
-        if (!user || user.password !== password) return res.status(401).json({ message: 'Identifiants incorrects' });
+        if (!user) return res.status(401).json({ message: 'Identifiants incorrects' });
+        // Comparer le mot de passe hashé
+        if (!(await bcrypt.compare(password, user.password))) {
+          return res.status(401).json({ message: 'Identifiants incorrects' });
+        }
         break;
 
       case 'agent':
         user = await Agent.findOne({ where: { username } });
         userRole = 'agent';
-        if (!user || user.password !== password) return res.status(401).json({ message: 'Identifiants incorrects' });
+        if (!user) return res.status(401).json({ message: 'Identifiants incorrects' });
+        // Comparer le mot de passe hashé
+        if (!(await bcrypt.compare(password, user.password))) {
+          return res.status(401).json({ message: 'Identifiants incorrects' });
+        }
         break;
 
       case 'citoyen':
         user = await Citoyen.findOne({ where: { numeroUnique: username } });
         userRole = 'citoyen';
         if (!user) return res.status(401).json({ message: 'Identifiants incorrects' });
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-        if (!isPasswordValid) return res.status(401).json({ message: 'Identifiants incorrects' });
+        if (!(await bcrypt.compare(password, user.password))) {
+          return res.status(401).json({ message: 'Identifiants incorrects' });
+        }
         break;
 
       default:
@@ -51,18 +61,20 @@ exports.loginUser = async (req, res) => {
   }
 };
 
-// Inscription citoyen
+// --- Inscription citoyen avec NUC et e-mail ---
 exports.registerCitoyen = async (req, res) => {
   try {
-    const { nom, postnom, prenom, dateNaissance, sexe, lieuNaissance, communeId, password } = req.body;
+    const { nom, postnom, prenom, dateNaissance, sexe, lieuNaissance, communeId, password, email } = req.body;
 
-    if (!nom || !prenom || !dateNaissance || !sexe || !lieuNaissance || !communeId || !password) {
+    // Vérification des champs obligatoires
+    if (!nom || !prenom || !dateNaissance || !sexe || !lieuNaissance || !communeId || !password || !email) {
       return res.status(400).json({ message: 'Tous les champs obligatoires doivent être remplis.' });
     }
 
     const numeroUnique = `CIT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Création du citoyen
     const citoyen = await Citoyen.create({
       nom,
       postnom,
@@ -71,9 +83,14 @@ exports.registerCitoyen = async (req, res) => {
       sexe,
       lieuNaissance,
       communeId,
+      email,
       numeroUnique,
       password: hashedPassword
     });
+
+    // Envoi automatique du NUC par e-mail
+    const nomComplet = `${prenom} ${nom}`;
+    await sendNUCEmail(email, nomComplet, numeroUnique);
 
     const token = jwt.sign(
       { id: citoyen.id, role: 'citoyen', communeId: citoyen.communeId },
@@ -81,7 +98,11 @@ exports.registerCitoyen = async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    res.status(201).json({ message: 'Inscription réussie', token, citoyen });
+    res.status(201).json({
+      message: 'Inscription réussie. Votre NUC vous a été envoyé par e-mail.',
+      token,
+      citoyen
+    });
 
   } catch (error) {
     console.error('Erreur inscription citoyen:', error);
