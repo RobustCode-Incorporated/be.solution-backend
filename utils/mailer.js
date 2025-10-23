@@ -13,14 +13,14 @@ exports.sendNUCEmail = async (email, nomComplet, numeroUnique) => {
       to: [{ email, name: nomComplet }],
       subject: 'Votre Numéro Unique du Citoyen (NUC)',
       htmlContent: `
-        <h2>Bienvenue sur e-Services RDC 🇨🇩</h2>
+        <h2>Bienvenue sur UE-Wallet </h2>
         <p>Bonjour <strong>${nomComplet}</strong>,</p>
         <p>Votre inscription a été effectuée avec succès.</p>
         <p>Voici votre <strong>Numéro Unique du Citoyen (NUC)</strong> :</p>
         <h3 style="color:#0E2C5A;">${numeroUnique}</h3>
         <p>Ce numéro vous servira à vous connecter à l’application mobile et à accéder à vos services administratifs numériques.</p>
         <br/>
-        <p style="color:#707070;">L’équipe e-Services RDC</p>
+        <p style="color:#707070;">L’équipe UE-Wallet</p>
       `
     };
 
