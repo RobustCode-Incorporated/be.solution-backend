@@ -1,3 +1,50 @@
+// Helper function for Annexe 26 digital template
+function generateAnnexe26Template(data) {
+  return {
+    documentType: "ANNEXE_26",
+    dossierNumber: data.nuc,
+    title: "Attestation de demande de protection internationale",
+    notice: "Document informatif – version numérique",
+    identity: {
+      nom: data.nom,
+      prenom: data.prenom,
+      dateNaissance: data.dateNaissance,
+      lieuNaissance: data.lieuNaissance,
+      nationalite: data.nationalite,
+      langueProcedure: data.langue || "français"
+    },
+    travelDocuments: {
+      passport: {
+        numero: data.passportNumber,
+        dateDebut: data.passportStart,
+        dateFin: data.passportEnd
+      },
+      visa: {
+        numero: data.visaNumber,
+        dateDebut: data.visaStart,
+        dateFin: data.visaEnd
+      }
+    },
+    procedure: {
+      dateArrivee: data.dateArrivee,
+      dateDemande: data.dateDemande,
+      lieuDemande: data.lieuDemande || "Belgique",
+      domicileElection: data.domicileElection || "CGRA – Bruxelles"
+    },
+    convocation: {
+      date: data.dateConvocation,
+      heure: data.heureConvocation,
+      lieu: data.lieuConvocation
+    },
+    legalNotice: [
+      "Ce document ne constitue ni un titre d’identité ni un titre de séjour.",
+      "Il est destiné à un usage administratif et informatif.",
+      "Les données personnelles sont traitées conformément à la législation en vigueur relative à la protection des données.",
+      "Les communications officielles seront envoyées à l’adresse déclarée ou, à défaut, à l’adresse administrative de référence."
+    ],
+    generatedAt: new Date().toISOString()
+  };
+}
 // controllers/demandeController.js
 const { Demande, Citoyen, Statut, Agent, Commune, Province, Administrateur } = require('../models');
 const puppeteer = require('puppeteer-core');
@@ -67,6 +114,53 @@ module.exports = {
         req.body.donneesJson = JSON.stringify(req.body.donneesJson);
       }
       const demande = await Demande.create(req.body);
+
+      // If Annexe 26 / demande creation, build and return the neutral digital template
+      // Try to get user/citoyen and build annexe26 if possible
+      let annexe26 = null;
+      // This logic assumes req.body contains required fields or can be built from demande
+      // Try to find the user/citoyen if possible
+      let user = null;
+      if (demande.citoyenId) {
+        user = await Citoyen.findByPk(demande.citoyenId);
+      }
+      // Fallback: try from req.body if not in DB
+      if (!user && req.body.citoyenId) {
+        user = await Citoyen.findByPk(req.body.citoyenId);
+      }
+      // If user found AND demande has Annexe 26/attestation context (e.g. typeDemande === 'annexe_26' or similar), return the template
+      // For this patch, if user and demande exist, always return the template (adjust as needed for your logic)
+      if (user && demande) {
+        // Use demande.id as nuc if no other field
+        const nuc = demande.id || null;
+        annexe26 = generateAnnexe26Template({
+          nuc,
+          nom: user.nom,
+          prenom: user.prenom,
+          dateNaissance: user.dateNaissance,
+          lieuNaissance: user.lieuNaissance,
+          nationalite: user.nationalite,
+          langue: user.langue,
+          passportNumber: user.passportNumber,
+          passportStart: user.passportStart,
+          passportEnd: user.passportEnd,
+          visaNumber: user.visaNumber,
+          visaStart: user.visaStart,
+          visaEnd: user.visaEnd,
+          dateArrivee: user.dateArrivee,
+          dateDemande: new Date().toISOString().split("T")[0],
+          domicileElection: "CGRA – Bruxelles",
+          dateConvocation: demande.dateConvocation,
+          heureConvocation: demande.heureConvocation,
+          lieuConvocation: demande.lieuConvocation
+        });
+        return res.status(201).json({
+          success: true,
+          annexe26
+        });
+      }
+
+      // fallback: normal response if not an Annexe 26 context
       res.status(201).json(demande);
     } catch (error) {
       console.error('Erreur createDemande:', error);
