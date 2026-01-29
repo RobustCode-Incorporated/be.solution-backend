@@ -71,7 +71,14 @@ exports.registerCitoyen = async (req, res) => {
       return res.status(400).json({ message: 'Tous les champs obligatoires doivent être remplis.' });
     }
 
-    const numeroUnique = `CIT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    // Génération du NUC : AAMMJJ + 5 chiffres aléatoires (11 chiffres)
+    const date = new Date(dateNaissance);
+    const annee = date.getFullYear().toString().slice(-2);
+    const mois = String(date.getMonth() + 1).padStart(2, '0');
+    const jour = String(date.getDate()).padStart(2, '0');
+    const randomPart = Math.floor(10000 + Math.random() * 90000).toString();
+
+    const numeroUnique = `${annee}${mois}${jour}${randomPart}`;
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Création du citoyen
